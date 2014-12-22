@@ -20,7 +20,6 @@ class PCKLoader(QtCore.QObject):
 
     def set_files(self, pck_filename, tab_filename, palette_filename):
         self.files = [pck_filename, tab_filename, palette_filename]
-        print 1
 
     # @QtCore.pyqtSlot()
     def load(self):
@@ -101,13 +100,9 @@ class MainWindow(QtGui.QWidget):
         self.setLayout(layout)
         self.resize(400, 200)
 
-    def keyPressEvent(self, e):
-        print 'Key pressed.%s' % e.key()
-
     @QtCore.pyqtSlot(QtCore.QModelIndex, QtCore.QModelIndex)
     def selection_changed(self, sel):
         if sel and hasattr(sel, 'indexes') and len(sel.indexes()) > 0:
-            print 'selected: %s' % sel.indexes()[0].row()
             self.show_image(sel.indexes()[0].row())
 
     def load_data(self, pck_filename, tab_filename=None, palette_filename=None):
@@ -123,7 +118,9 @@ class MainWindow(QtGui.QWidget):
     @QtCore.pyqtSlot()
     def loaded(self):
         images = self.sender().images
-        print 'loaded...%d' % len(images)
+        self.thread.quit()
+        self.thread.deleteLater()
+        print 'loaded {} images.'.format(len(images))
         self.images_list_model.set_images_count(len(images))
         self.images = images
         self.show_image(0)
@@ -134,7 +131,6 @@ class MainWindow(QtGui.QWidget):
             in_buffer = cStringIO.StringIO()
             in_img.save(in_buffer, 'PNG')
             out_img = QtGui.QImage.fromData(in_buffer.getvalue())
-            print out_img.width(), out_img.height()
             # noinspection PyArgumentList
             pixmap = QtGui.QPixmap.fromImage(out_img)
             self.scene.clear()
