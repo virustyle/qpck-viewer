@@ -119,6 +119,7 @@ class MainWindow(QtGui.QWidget):
         # self.status_bar.showMessage('Ja-ja!')
         # self.status_bar.show()
 
+        self.setWindowIcon(QtGui.QIcon('apocicon.ico'))
         self.setWindowTitle('PCK viewer')
         self.setContentsMargins(0, 11, 0, 0)
         self.setLayout(layout)
