@@ -68,6 +68,7 @@ class MainWindow(QtGui.QWidget):
     scene = None
     status_bar = None
     images = []
+    zoom_factor = 1
 
     def __init__(self):
         super(MainWindow, self).__init__()
@@ -75,6 +76,7 @@ class MainWindow(QtGui.QWidget):
         self.loader = PCKLoader()
         self.thread = QtCore.QThread()
         self.setup_ui()
+        self.zoom_factor = 1
 
     def setup_ui(self):
         self.scene = QtGui.QGraphicsScene(self)
@@ -82,6 +84,25 @@ class MainWindow(QtGui.QWidget):
         self.image_preview.setScene(self.scene)
         self.image_preview.setBackgroundBrush(QtGui.QBrush(QtCore.Qt.lightGray, QtCore.Qt.SolidPattern))
         self.image_preview.show()
+
+        main_menu = QtGui.QMenuBar(self)
+        menu_view = main_menu.addMenu('&View')
+
+        action_zoom_in = QtGui.QAction('Zoom in', self)
+        action_zoom_in.setShortcut(QtGui.QKeySequence(QtCore.Qt.Key_Plus))
+        self.connect(action_zoom_in, QtCore.SIGNAL('triggered()'), self.zoom_in)
+
+        action_zoom_out = QtGui.QAction('Zoom out', self)
+        action_zoom_out.setShortcut(QtGui.QKeySequence(QtCore.Qt.Key_Minus))
+        self.connect(action_zoom_out, QtCore.SIGNAL('triggered()'), self.zoom_out)
+
+        action_zoom_reset = QtGui.QAction('Zoom reset', self)
+        action_zoom_reset.setShortcut(QtGui.QKeySequence(QtCore.Qt.Key_0))
+        self.connect(action_zoom_reset, QtCore.SIGNAL('triggered()'), self.zoom_reset)
+
+        menu_view.addAction(action_zoom_in)
+        menu_view.addAction(action_zoom_out)
+        menu_view.addAction(action_zoom_reset)
 
         images_list = QtGui.QListView()
         images_list.setStyleSheet('background-color: black; color: lightgrey;')
@@ -94,14 +115,12 @@ class MainWindow(QtGui.QWidget):
         layout.addWidget(self.image_preview)
         layout.addWidget(images_list)
 
-        self.status_bar = QtGui.QStatusBar(self)
-        self.status_bar.showMessage('Ja-ja!')
-        self.status_bar.show()
+        # self.status_bar = QtGui.QStatusBar(self)
+        # self.status_bar.showMessage('Ja-ja!')
+        # self.status_bar.show()
 
-        main_menu = QtGui.QMenuBar(self)
-        # main_menu.show()
-        menu_view = main_menu.addMenu('&View')
-        menu_view.addAction('Scale', self.scale_preview)
+        self.setWindowTitle('PCK viewer')
+        self.setContentsMargins(0, 11, 0, 0)
         self.setLayout(layout)
         self.resize(400, 200)
 
@@ -145,6 +164,18 @@ class MainWindow(QtGui.QWidget):
 
     def scale_preview(self, x, y):
         self.image_preview.scale(x, y)
+
+    def zoom_in(self):
+        self.zoom_factor *= 2.0
+        self.image_preview.scale(2, 2)
+
+    def zoom_out(self):
+        self.zoom_factor /= 2.0
+        self.image_preview.scale(0.5, 0.5)
+
+    def zoom_reset(self):
+        self.image_preview.scale(1 / self.zoom_factor, 1 / self.zoom_factor)
+        self.zoom_factor = 1
 
 def main():
     app = QtGui.QApplication(sys.argv)
