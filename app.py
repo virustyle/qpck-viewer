@@ -115,10 +115,6 @@ class MainWindow(QtGui.QWidget):
         layout.addWidget(self.image_preview)
         layout.addWidget(images_list)
 
-        # self.status_bar = QtGui.QStatusBar(self)
-        # self.status_bar.showMessage('Ja-ja!')
-        # self.status_bar.show()
-
         self.setWindowIcon(QtGui.QIcon('apocicon.ico'))
         self.setWindowTitle('PCK viewer')
         self.setContentsMargins(0, 11, 0, 0)
