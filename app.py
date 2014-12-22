@@ -5,8 +5,8 @@ import sys
 import os
 import cStringIO
 import argparse
-
 from PyQt4 import QtGui, QtCore
+
 import pck
 
 
@@ -37,19 +37,24 @@ class ImagesListModel(QtCore.QAbstractItemModel):
     def set_images_count(self, count):
         self.images = count
         # self.emit(QtCore.SIGNAL('dataChanged()'))
+        # noinspection PyUnresolvedReferences
         self.dataChanged.emit(self.createIndex(0, 0), self.createIndex(count, 0))
 
+    # noinspection PyPep8Naming
     def columnCount(self, QModelIndex_parent=None, *args, **kwargs):
         return 1
 
+    # noinspection PyPep8Naming
     def rowCount(self, QModelIndex_parent=None, *args, **kwargs):
         return self.images
 
+    # noinspection PyPep8Naming
     def index(self, row, column, QModelIndex_parent=None, *args, **kwargs):
         if row < self.images:
             return self.createIndex(row, column)
         return QtCore.QModelIndex()
 
+    # noinspection PyPep8Naming
     def parent(self, QModelIndex=None):
         return QtCore.QModelIndex()
 
@@ -62,12 +67,13 @@ class MainWindow(QtGui.QWidget):
     load = QtCore.pyqtSignal()
     images_list_model = ImagesListModel()
     scene = None
-    statusbar = None
+    status_bar = None
     images = []
-    __pck__ = None
 
     def __init__(self):
         super(MainWindow, self).__init__()
+        self.loader = PCKLoader()
+        self.thread = QtCore.QThread()
         self.setup_ui()
 
     def setup_ui(self):
@@ -88,9 +94,9 @@ class MainWindow(QtGui.QWidget):
         layout.addWidget(image_preview)
         layout.addWidget(images_list)
 
-        self.statusbar = QtGui.QStatusBar(self)
-        self.statusbar.showMessage('Ja-ja!')
-        self.statusbar.show()
+        self.status_bar = QtGui.QStatusBar(self)
+        self.status_bar.showMessage('Ja-ja!')
+        self.status_bar.show()
 
         self.setLayout(layout)
         self.resize(400, 200)
@@ -105,13 +111,14 @@ class MainWindow(QtGui.QWidget):
             self.show_image(sel.indexes()[0].row())
 
     def load_data(self, pck_filename, tab_filename=None, palette_filename=None):
-        loader = PCKLoader()
-        loader.set_files(pck_filename, tab_filename, palette_filename)
-        thread = QtCore.QThread()
-        loader.moveToThread(thread)
-        loader.loaded.connect(self.loaded)
-        thread.started.connect(loader.load)
-        thread.start()
+        self.scene.clear()
+        self.scene.addText('Loading...')
+        self.loader.set_files(pck_filename, tab_filename, palette_filename)
+        self.loader.moveToThread(self.thread)
+        self.loader.loaded.connect(self.loaded)
+        # noinspection PyUnresolvedReferences
+        self.thread.started.connect(self.loader.load)
+        self.thread.start()
 
     @QtCore.pyqtSlot()
     def loaded(self):
@@ -128,15 +135,17 @@ class MainWindow(QtGui.QWidget):
             in_img.save(in_buffer, 'PNG')
             out_img = QtGui.QImage.fromData(in_buffer.getvalue())
             print out_img.width(), out_img.height()
-            pixmap = QtGui.QPixmap.fromImage(QImage=out_img)
+            # noinspection PyArgumentList
+            pixmap = QtGui.QPixmap.fromImage(out_img)
             self.scene.clear()
             self.scene.addPixmap(pixmap)
         else:
-            print('Out of index: {}.'.format(number))
-            print(len(self.__pck__.images))
+            print('Out of index: {}/{}.'.format(number), len(self.images))
 
 
 def main():
+    app = QtGui.QApplication(sys.argv)
+    main_window = MainWindow()
     if len(sys.argv) > 1:
         parser = argparse.ArgumentParser()
         parser.add_argument('pck', help='path to the pck file to work on.')
@@ -163,18 +172,8 @@ def main():
                 tab_filename = ''
         else:
             tab_filename = args.tab
+        main_window.load_data(pck_filename, tab_filename, palette_filename)
 
-    app = QtGui.QApplication(sys.argv)
-    main_window = MainWindow()
-    # main_window.load_data(pck_filename, tab_filename, palette_filename)
-    # TODO: Find way to fix it =\
-    loader = PCKLoader()
-    loader.set_files(pck_filename, tab_filename, palette_filename)
-    thread = QtCore.QThread()
-    loader.moveToThread(thread)
-    loader.loaded.connect(main_window.loaded)
-    thread.started.connect(loader.load)
-    thread.start()
     main_window.show()
     sys.exit(app.exec_())
 
