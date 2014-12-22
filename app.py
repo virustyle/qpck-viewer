@@ -71,17 +71,17 @@ class MainWindow(QtGui.QWidget):
 
     def __init__(self):
         super(MainWindow, self).__init__()
+        self.image_preview = QtGui.QGraphicsView()
         self.loader = PCKLoader()
         self.thread = QtCore.QThread()
         self.setup_ui()
 
     def setup_ui(self):
-        image_preview = QtGui.QGraphicsView()
         self.scene = QtGui.QGraphicsScene(self)
         self.scene.addText('Empty')
-        image_preview.setScene(self.scene)
-        image_preview.setBackgroundBrush(QtGui.QBrush(QtCore.Qt.lightGray, QtCore.Qt.SolidPattern))
-        image_preview.show()
+        self.image_preview.setScene(self.scene)
+        self.image_preview.setBackgroundBrush(QtGui.QBrush(QtCore.Qt.lightGray, QtCore.Qt.SolidPattern))
+        self.image_preview.show()
 
         images_list = QtGui.QListView()
         images_list.setStyleSheet('background-color: black; color: lightgrey;')
@@ -91,13 +91,17 @@ class MainWindow(QtGui.QWidget):
         images_list.selectionModel().selectionChanged.connect(self.selection_changed)
 
         layout = QtGui.QVBoxLayout()
-        layout.addWidget(image_preview)
+        layout.addWidget(self.image_preview)
         layout.addWidget(images_list)
 
         self.status_bar = QtGui.QStatusBar(self)
         self.status_bar.showMessage('Ja-ja!')
         self.status_bar.show()
 
+        main_menu = QtGui.QMenuBar(self)
+        # main_menu.show()
+        menu_view = main_menu.addMenu('&View')
+        menu_view.addAction('Scale', self.scale_preview)
         self.setLayout(layout)
         self.resize(400, 200)
 
@@ -139,6 +143,8 @@ class MainWindow(QtGui.QWidget):
         else:
             print('Out of index: {}/{}.'.format(number), len(self.images))
 
+    def scale_preview(self, x, y):
+        self.image_preview.scale(x, y)
 
 def main():
     app = QtGui.QApplication(sys.argv)
