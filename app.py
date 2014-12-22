@@ -80,6 +80,7 @@ class MainWindow(QtGui.QWidget):
         self.scene = QtGui.QGraphicsScene(self)
         self.scene.addText('Empty')
         image_preview.setScene(self.scene)
+        image_preview.setBackgroundBrush(QtGui.QBrush(QtCore.Qt.lightGray, QtCore.Qt.SolidPattern))
         image_preview.show()
 
         images_list = QtGui.QListView()
