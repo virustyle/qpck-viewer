@@ -10,13 +10,56 @@ from PyQt4 import QtGui, QtCore
 import pck
 
 
+class OpenDialog(QtGui.QWidget):
+    ok_clicked = QtCore.pyqtSignal()
+    pck_file_path = ''
+    tab_file_path = ''
+    palette_file_path = ''
+
+    def __init__(self):
+        super(OpenDialog, self).__init__()
+        pck_open_button = QtGui.QPushButton('...')
+        pck_open_button.setFixedWidth(24)
+
+        tab_open_button = QtGui.QPushButton('...')
+        tab_open_button.setFixedWidth(24)
+
+        palette_open_button = QtGui.QPushButton('...')
+        palette_open_button.setFixedWidth(24)
+
+        self.pck_path_input = QtGui.QLineEdit()
+        self.tab_path_input = QtGui.QLineEdit()
+        self.palette_path_input = QtGui.QLineEdit()
+        ok_button = QtGui.QPushButton('&OK')
+        cancel_button = QtGui.QPushButton('&Cancel')
+
+        layout = QtGui.QFormLayout(self)
+        layout.addRow(pck_open_button, self.pck_path_input)
+        layout.addRow(tab_open_button, self.tab_path_input)
+        layout.addRow(palette_open_button, self.palette_path_input)
+
+        buttons_layout = QtGui.QFormLayout()
+        buttons_layout.addRow(ok_button, cancel_button)
+        layout.addRow(buttons_layout)
+
+        self.connect(pck_open_button,
+                     QtCore.SIGNAL('clicked()'),
+                     lambda: self.pck_path_input.setText(QtGui.QFileDialog().getOpenFileName(self)))
+        self.connect(cancel_button, QtCore.SIGNAL('clicked()'), self.hide)
+        self.connect(ok_button, QtCore.SIGNAL('clicked()'), lambda: self.ok_clicked.emit())
+        self.resize(400, 100)
+
+    def get_filename(self):
+        return QtGui.QFileDialog(self, '')
+
+
 class PCKLoader(QtCore.QObject):
     loaded = QtCore.pyqtSignal()
-    images = []
-    files = []
-    #
-    # def __init__(self, parent=None):
-    # super(PCKLoader, self).__init__()
+
+    def __init__(self, parent=None):
+        super(PCKLoader, self).__init__()
+        self.images = []
+        self.files = []
 
     def set_files(self, pck_filename, tab_filename, palette_filename):
         self.files = [pck_filename, tab_filename, palette_filename]
@@ -28,8 +71,8 @@ class PCKLoader(QtCore.QObject):
 
 
 class ImagesListModel(QtCore.QAbstractItemModel):
-    def __init__(self):
-        super(ImagesListModel, self).__init__()
+    def __init__(self, parent):
+        super(ImagesListModel, self).__init__(parent)
         self._data = [x for x in range(10)]
         self.images = 0
 
@@ -64,28 +107,31 @@ class ImagesListModel(QtCore.QAbstractItemModel):
 
 class MainWindow(QtGui.QWidget):
     load = QtCore.pyqtSignal()
-    images_list_model = ImagesListModel()
-    scene = None
-    status_bar = None
-    images = []
-    zoom_factor = 1
 
     def __init__(self):
         super(MainWindow, self).__init__()
         self.image_preview = QtGui.QGraphicsView()
         self.loader = PCKLoader()
-        self.thread = QtCore.QThread()
-        self.setup_ui()
+        self.thread = QtCore.QThread(self)
+        self.images_list_model = ImagesListModel(self)
+        self.open_dialog = OpenDialog()
         self.zoom_factor = 1
+        self.images = []
+        self.scene = QtGui.QGraphicsScene(self)
+        self.setup_ui()
+
+    def closeEvent(self, q_close_event):
+        self.delete_thread()
+        QtGui.QWidget.closeEvent(self, q_close_event)
 
     def setup_ui(self):
-        self.scene = QtGui.QGraphicsScene(self)
-        self.scene.addText('Empty')
+        self.scene.addText('Empty').setDefaultTextColor(QtGui.QColor(QtCore.Qt.gray))
         self.image_preview.setScene(self.scene)
-        self.image_preview.setBackgroundBrush(QtGui.QBrush(QtCore.Qt.lightGray, QtCore.Qt.SolidPattern))
+        self.image_preview.setBackgroundBrush(QtGui.QBrush(QtCore.Qt.black, QtCore.Qt.SolidPattern))
         self.image_preview.show()
 
         main_menu = QtGui.QMenuBar(self)
+        menu_file = main_menu.addMenu('&File')
         menu_view = main_menu.addMenu('&View')
 
         action_zoom_in = QtGui.QAction('Zoom in', self)
@@ -100,6 +146,11 @@ class MainWindow(QtGui.QWidget):
         action_zoom_reset.setShortcut(QtGui.QKeySequence(QtCore.Qt.Key_0))
         self.connect(action_zoom_reset, QtCore.SIGNAL('triggered()'), self.zoom_reset)
 
+        open_file = QtGui.QAction('&Open', self)
+        open_file.setShortcut(QtGui.QKeySequence('Ctrl+O'))
+        self.connect(open_file, QtCore.SIGNAL('triggered()'), self.show_open_dialog)
+
+        menu_file.addAction(open_file)
         menu_view.addAction(action_zoom_in)
         menu_view.addAction(action_zoom_out)
         menu_view.addAction(action_zoom_reset)
@@ -115,6 +166,7 @@ class MainWindow(QtGui.QWidget):
         layout.addWidget(self.image_preview)
         layout.addWidget(images_list)
 
+        self.connect(self.open_dialog, QtCore.SIGNAL('ok_clicked()'), self.open_dialog_ok)
         self.setWindowIcon(QtGui.QIcon('apocicon.ico'))
         self.setWindowTitle('PCK viewer')
         self.setContentsMargins(0, 11, 0, 0)
@@ -126,9 +178,18 @@ class MainWindow(QtGui.QWidget):
         if sel and hasattr(sel, 'indexes') and len(sel.indexes()) > 0:
             self.show_image(sel.indexes()[0].row())
 
-    def load_data(self, pck_filename, tab_filename=None, palette_filename=None):
+    def unload_images(self):
+        self.thread.quit()
+        self.thread.deleteLater()
         self.scene.clear()
-        self.scene.addText('Loading...')
+        self.images_list_model.set_images_count(0)
+        del self.loader
+
+    def load_data(self, pck_filename, tab_filename=None, palette_filename=None):
+        self.unload_images()
+        self.thread = QtCore.QThread(self)
+        self.loader = PCKLoader()
+        self.scene.addText('Loading...').setDefaultTextColor(QtGui.QColor(QtCore.Qt.gray))
         self.loader.set_files(pck_filename, tab_filename, palette_filename)
         self.loader.moveToThread(self.thread)
         self.loader.loaded.connect(self.loaded)
@@ -136,11 +197,14 @@ class MainWindow(QtGui.QWidget):
         self.thread.started.connect(self.loader.load)
         self.thread.start()
 
+    def delete_thread(self):
+        print('Quit')
+        self.thread.quit()
+        self.thread.deleteLater()
+
     @QtCore.pyqtSlot()
     def loaded(self):
         images = self.sender().images
-        self.thread.quit()
-        self.thread.deleteLater()
         print 'loaded {} images.'.format(len(images))
         self.images_list_model.set_images_count(len(images))
         self.images = images
@@ -173,6 +237,16 @@ class MainWindow(QtGui.QWidget):
     def zoom_reset(self):
         self.image_preview.scale(1 / self.zoom_factor, 1 / self.zoom_factor)
         self.zoom_factor = 1
+
+    def show_open_dialog(self):
+        self.open_dialog.show()
+
+    def open_dialog_ok(self):
+        self.open_dialog.hide()
+        self.load_data(self.open_dialog.pck_path_input.text(),
+                       self.open_dialog.tab_path_input.text(),
+                       self.open_dialog.palette_path_input.text())
+
 
 def main():
     app = QtGui.QApplication(sys.argv)
